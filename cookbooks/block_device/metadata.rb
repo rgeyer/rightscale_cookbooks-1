@@ -270,6 +270,14 @@ end.each do |device, number|
     :choice => ["50", "60", "70", "80", "90", "100"],
     :default => "90",
     :recipes => [ "block_device::setup_block_device", "block_device::default" ]
+
+  attribute "block_device/devices/#{device}/restore_source/ignore",
+    :display_name => "List of Restore Sources to Ignore for (#{number})",
+    :description => "An array of strings listing restore sources that should not be used.  The restore or create recipe will attempt to restore from (in order of priority) primary, secondary, or create a new block device.  Putting any one of those values (primary, secondary) in this input will exclude that source from the restore attempt.  If no backups are found a new block device will always be created",
+    :type => "array",
+    :required => "optional",
+    :default => [],
+    :recipes => [ "block_device::do_restore_or_setup_block_device_on_boot" ]
 end
 
 attribute "block_device/terminate_safety",

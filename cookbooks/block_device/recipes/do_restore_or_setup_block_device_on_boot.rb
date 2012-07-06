@@ -16,7 +16,7 @@ class Chef::Resource::BlockDevice
 end
 
 do_for_block_devices node[:block_device] do |device|
-  log "  Creating block device and restoring data from primary backup for device #{device}..."
+  log "  Attempting to restore from backup or create a blank block device for device #{device}..."
   lineage = get_device_or_default(node, device, :backup, :lineage)
   lineage_override = get_device_or_default(node, device, :backup, :lineage_override)
   restore_lineage = lineage_override == nil || lineage_override.empty? ? lineage : lineage_override
@@ -26,6 +26,7 @@ do_for_block_devices node[:block_device] do |device|
   log "  Using lineage #{restore_lineage.inspect}"
   log "  Input timestamp_override #{restore_timestamp_override.inspect}"
   restore_timestamp_override ||= ""
+  restore_or_create_action = nil
 
   bd = block_device get_device_or_default(node, device, :nickname) do
     lineage restore_lineage
@@ -40,7 +41,40 @@ do_for_block_devices node[:block_device] do |device|
     action :nothing
   end
 
-  Chef::Log.info(bd.run_action(:list_backups))
+  backups = bd.run_action(:list_backups)
+  log "  Found the following backups for device #{device}..."
+  log "  #{JSON::pretty_generate(backups)}"
+
+  # Remove ignored restore sources from the preferred source/order list.
+  get_device_or_default(node, device, :restore_source, :ignore).each do |restore_ignore|
+    node[:block_device][:devices][:restore_source][:preferred_order].delete(restore_ignore.to_sym)
+  end
+
+  log "  Going to attempt to restore/create in this order... #{JSON::pretty_generate(node[:block_device][:devices][:restore_source][:preferred_order])}"
+
+  node[:block_device][:devices][:restore_source][:preferred_order].each do |restore_source|
+    if restore_source == 'create'
+      # Create should always be the last option in the :preferred_order array.
+      # Therefore there's no need to break out of the loop here
+      log "  Creating a new block device for device #{device}"
+      restore_or_create_action = :create
+    else
+      log "  Attempting to restore from #{restore_source} for device #{device}"
+      if backups[restore_source.to_sym] && backups[restore_source.to_sym][:backups].count > 0
+        restore_or_create_action = "#{restore_source}_restore".to_sym
+        break
+      else
+        log "  There were no backups in #{restore_source} to restore from for device #{device}"
+      end
+    end
+  end
+
+  raise "Unable to restore or create a block device.  Perhaps there are no suitable backups and you excluded \"create\" from the restore sources?" unless restore_or_create_action
+
+  log "  Choose to take the following restore action: #{restore_or_create_action}"
+
+  bd.run_action(restore_or_create_action)
+
 end
 
 rightscale_marker :end
