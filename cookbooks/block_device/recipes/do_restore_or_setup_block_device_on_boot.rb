@@ -27,6 +27,7 @@ do_for_block_devices node[:block_device] do |device|
   log "  Input timestamp_override #{restore_timestamp_override.inspect}"
   restore_timestamp_override ||= ""
   restore_or_create_action = nil
+  restore_sources = node[:block_device][:devices][:restore_source][:preferred_order]
 
   bd = block_device get_device_or_default(node, device, :nickname) do
     lineage restore_lineage
@@ -47,12 +48,12 @@ do_for_block_devices node[:block_device] do |device|
 
   # Remove ignored restore sources from the preferred source/order list.
   get_device_or_default(node, device, :restore_source, :ignore).each do |restore_ignore|
-    node[:block_device][:devices][:restore_source][:preferred_order].delete(restore_ignore.to_sym)
+    restore_sources.delete(restore_ignore.to_sym)
   end
 
-  log "  Going to attempt to restore/create in this order... #{JSON::pretty_generate(node[:block_device][:devices][:restore_source][:preferred_order])}"
+  log "  Going to attempt to restore/create in this order... #{JSON::pretty_generate(restore_sources)}"
 
-  node[:block_device][:devices][:restore_source][:preferred_order].each do |restore_source|
+  restore_sources.each do |restore_source|
     if restore_source == 'create'
       # Create should always be the last option in the :preferred_order array.
       # Therefore there's no need to break out of the loop here
