@@ -70,11 +70,14 @@ do_for_block_devices node[:block_device] do |device|
     end
   end
 
-  raise "Unable to restore or create a block device.  Perhaps there are no suitable backups and you excluded \"create\" from the restore sources?" unless restore_or_create_action
-
   log "  Choose to take the following restore action: #{restore_or_create_action}"
 
-  bd.run_action(restore_or_create_action)
+  ruby_block "Perform the restore or create action or fail" do
+    block do
+      raise "Unable to restore or create a block device.  Perhaps there are no suitable backups and you excluded \"create\" from the restore sources?" unless restore_or_create_action
+      bd.run_action(restore_or_create_action)
+    end
+  end
 
 end
 
