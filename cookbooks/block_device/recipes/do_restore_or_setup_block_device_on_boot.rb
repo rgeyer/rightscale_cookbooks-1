@@ -28,6 +28,7 @@ do_for_block_devices node[:block_device] do |device|
   restore_timestamp_override ||= ""
   restore_or_create_action = nil
   restore_sources = node[:block_device][:devices][:restore_source][:preferred_order]
+  mountpoint = get_device_or_default(node, device, :mount_point)
 
   bd = block_device get_device_or_default(node, device, :nickname) do
     lineage restore_lineage
@@ -77,6 +78,7 @@ do_for_block_devices node[:block_device] do |device|
       raise "Unable to restore or create a block device.  Perhaps there are no suitable backups and you excluded \"create\" from the restore sources?" unless restore_or_create_action
       bd.run_action(restore_or_create_action)
     end
+    not_if "mount | grep #{mountpoint}"
   end
 
 end
