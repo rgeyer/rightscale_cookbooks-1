@@ -49,7 +49,7 @@ do_for_block_devices node[:block_device] do |device|
 
   # Remove ignored restore sources from the preferred source/order list.
   get_device_or_default(node, device, :restore_source, :ignore).each do |restore_ignore|
-    restore_sources.delete(restore_ignore.to_sym)
+    restore_sources.delete(restore_ignore)
   end
 
   log "  Going to attempt to restore/create in this order... #{JSON::pretty_generate(restore_sources)}"
