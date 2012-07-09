@@ -156,4 +156,9 @@ add_action :backup_lock_take
 #
 add_action :backup_lock_give
 
+
+# == List Backups
+# Returns a list of backups in the format provided by RightScale::Tools::BlockDevice.list_all_backups
+add_action :list_backups
+
 actions @action_list
