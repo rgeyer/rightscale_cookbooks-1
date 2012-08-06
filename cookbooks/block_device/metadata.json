@@ -48,7 +48,7 @@
         "block_device::do_secondary_restore",
         "block_device::do_restore_or_setup_block_device_on_boot"
       ],
-      "description": "Another optional variable to restore from a specific timestamp. Specify a string matching the timestamp tags on the volume snapshot set. You will need to specify the timestamp that's defined by the snapshot's tag (not name). This is only used with AWS. For example, if the snapshot's tag is 'rs_backup:timestamp=1303613371' you would specify '1303613371' for this input.",
+      "description": "Another optional variable to restore from a specific timestamp. Specify a string matching the timestamp tags on the volume snapshot set. You will need to specify the timestamp that's defined by the snapshot's tag (not name). For example, if the snapshot's tag is 'rs_backup:timestamp=1303613371' you would specify '1303613371' for this input.",
       "display_name": "Backup Restore Timestamp Override (2)"
     },
     "block_device/devices/device2/stripe_count": {
@@ -175,7 +175,7 @@
         "block_device::do_secondary_restore",
         "block_device::do_restore_or_setup_block_device_on_boot"
       ],
-      "description": "Another optional variable to restore from a specific timestamp. Specify a string matching the timestamp tags on the volume snapshot set. You will need to specify the timestamp that's defined by the snapshot's tag (not name). This is only used with AWS. For example, if the snapshot's tag is 'rs_backup:timestamp=1303613371' you would specify '1303613371' for this input.",
+      "description": "Another optional variable to restore from a specific timestamp. Specify a string matching the timestamp tags on the volume snapshot set. You will need to specify the timestamp that's defined by the snapshot's tag (not name). For example, if the snapshot's tag is 'rs_backup:timestamp=1303613371' you would specify '1303613371' for this input.",
       "display_name": "Backup Restore Timestamp Override (1)"
     },
     "block_device/devices/default/backup/primary/endpoint": {
@@ -522,6 +522,8 @@
         "s3",
         "cloudfiles",
         "cloudfilesuk",
+        "google",
+        "azure",
         "swift",
         "SoftLayer_Dallas",
         "SoftLayer_Singapore",
@@ -673,6 +675,8 @@
         "s3",
         "cloudfiles",
         "cloudfilesuk",
+        "google",
+        "azure",
         "swift",
         "SoftLayer_Dallas",
         "SoftLayer_Singapore",
@@ -755,7 +759,7 @@
   "suggestions": {
   },
   "platforms": {
-    "centos": "~> 5.8",
+    "centos": "~> 6.2",
     "ubuntu": "~> 10.04.0",
     "redhat": "~> 5.8"
   },
