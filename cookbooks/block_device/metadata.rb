@@ -28,6 +28,8 @@ recipe "block_device::do_delete_volumes_and_terminate_server", "Deletes any curr
 
 recipe "block_device::do_force_reset", "Unmount and delete the attached block device(s) for this lineage. Designed for test and development purposes only. WARNING: Execution of this script will delete any data on your block device!"
 
+recipe "block_device::do_restore_or_setup_block_device_on_boot", "When placed in the boot runlist, this will intelligently discover backups and restore from them.  If no backups have been created a new blank block device is created."
+
 # all recipes EXCEPT for block_device::default which is used to "export" inputs to other cookbooks.
 all_recipes = [
   "block_device::do_primary_backup",
@@ -37,12 +39,14 @@ all_recipes = [
   "block_device::do_primary_backup_schedule_enable",
   "block_device::do_primary_backup_schedule_disable",
   "block_device::setup_block_device",
-  "block_device::do_force_reset"
+  "block_device::do_force_reset",
+  "block_device::do_restore_or_setup_block_device_on_boot"
 ]
 
 restore_recipes = [
   "block_device::do_primary_restore",
-  "block_device::do_secondary_restore"
+  "block_device::do_secondary_restore",
+  "block_device::do_restore_or_setup_block_device_on_boot"
 ]
 
 backup_recipes = [
@@ -275,6 +279,14 @@ end.each do |device, number|
     :type => "string",
     :required => "optional",
     :recipes => [ "block_device::setup_block_device", "block_device::default" ]
+
+  attribute "block_device/devices/#{device}/restore_source/ignore",
+    :display_name => "List of Restore Sources to Ignore for (#{number})",
+    :description => "An array of strings listing restore sources that should not be used.  The restore or create recipe will attempt to restore from (in order of priority) primary, secondary, or create a new block device.  Putting any one of those values (primary, secondary) in this input will exclude that source from the restore attempt.  If no backups are found a new block device will always be created",
+    :type => "array",
+    :required => "optional",
+    :default => [],
+    :recipes => [ "block_device::do_restore_or_setup_block_device_on_boot" ]
 end
 
 attribute "block_device/terminate_safety",
