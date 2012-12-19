@@ -21,6 +21,10 @@ set_unless[:block_device][:devices][:default][:backup][:secondary][:cred][:secre
 
 set_unless[:block_device][:devices_to_use] = 'device1'
 
+# Not definable via a RightScale dashboard input because it's not specified in metadata.*.  This is by design
+set_unless[:block_device][:devices][:restore_source][:preferred_order] = ['primary', 'secondary', 'create']
+set_unless[:block_device][:devices][:default][:restore_source][:ignore] = []
+
 # Defining initial backup parameters for all block devices
 RightScale::BlockDeviceHelper.do_for_all_block_devices block_device do |device, number|
   # Backup every hour on a randomly calculated minute

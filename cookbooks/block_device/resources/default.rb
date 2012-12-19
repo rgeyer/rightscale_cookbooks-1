@@ -133,3 +133,8 @@ actions :backup_schedule_enable
 # Disable cron-based scheduled backups
 #
 actions :backup_schedule_disable
+
+
+# == List Backups
+# Returns a list of backups in the format provided by RightScale::Tools::BlockDevice.list_all_backups
+actions :list_backups

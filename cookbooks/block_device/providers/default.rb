@@ -160,3 +160,9 @@ action :backup_schedule_disable do
     action :delete
   end
 end
+
+action :list_backups do
+  device = init(new_resource)
+  device.list_all_backups(new_resource.lineage)
+end
+
