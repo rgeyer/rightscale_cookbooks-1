@@ -7,15 +7,6 @@
 
 require 'uri'
 
-# Add actions to @action_list array.
-# Used to allow comments between entries.
-def self.add_action(sym)
-  @action_list ||= Array.new
-  @action_list << sym unless @action_list.include?(sym)
-  @action_list
-end
-
-
 # = Block_device Attributes
 # 
 # Below are the attributes defined by the block_device resource interface.
@@ -26,9 +17,8 @@ attribute :nickname, :kind_of => String, :name_attribute => true
 attribute :cloud, :required => true
 attribute :hypervisor, :kind_of => String
 attribute :mount_point, :kind_of => String, :required => true
-attribute :force, :equal_to => [ true, false ], :default => false
 attribute :is_master, :equal_to => [ true, false ], :default => false
-
+attribute :force, :equal_to => [ true, false ], :default => false
 
 # == Backup/Restore options
 attribute :lineage, :kind_of => String
@@ -47,13 +37,13 @@ attribute :keep_daily, :kind_of => String
 attribute :keep_weekly, :kind_of => String
 attribute :keep_monthly, :kind_of => String
 attribute :keep_yearly, :kind_of => String
-attribute :force, :equal_to => [ true, false ], :default => false # Used by backup_lock_take action
 
 
 # == Options for volume block devices
 attribute :volume_size, :kind_of => String
 attribute :stripe_count, :kind_of => String
 attribute :vg_data_percentage, :kind_of => String
+attribute :iops, :kind_of => String
 
 # == Callbacks for ROS endpoint validation
 endpoint_callbacks = {
@@ -94,71 +84,57 @@ attribute :rackspace_snet, :equal_to => [ true, false ], :default => true
 # == Create
 # This utility creates a new block device.
 #
-add_action :create
+actions :create
 
 
 # == Snapshot
 # This action will create a snapshot of a block device previously created
 #
-add_action :snapshot
+actions :snapshot
 
 
 # == Primary Backup
 # Prepare device for primary backup
 #
-add_action :primary_backup
+actions :primary_backup
 
 
 # == Primary Restore
 # Prepare device for primary restore
 #
-add_action :primary_restore
+actions :primary_restore
 
 
 # == Secondary Backup
 # Prepare device for secondary backup
 #
-add_action :secondary_backup
+actions :secondary_backup
 
 
 # == Secondary Restore
 # Prepare device for secondary restore
 #
-add_action :secondary_restore
+actions :secondary_restore
 
 
 # == Reset
 # Unmount and delete the attached block device(s)
 #
-add_action :reset
+actions :reset
 
 
 # == Backup Schedule Enable
 # Enable cron-based scheduled backups
 #
-add_action :backup_schedule_enable
+actions :backup_schedule_enable
 
 
 # == Backup Schedule Disable
 # Disable cron-based scheduled backups
 #
-add_action :backup_schedule_disable
-
-
-# == Backup Lock Take
-# Acquire the backup lock
-#
-add_action :backup_lock_take
-
-
-# == Backup Lock Give
-# Create the backup lock
-#
-add_action :backup_lock_give
+actions :backup_schedule_disable
 
 
 # == List Backups
 # Returns a list of backups in the format provided by RightScale::Tools::BlockDevice.list_all_backups
-add_action :list_backups
-
-actions @action_list
+actions :list_backups

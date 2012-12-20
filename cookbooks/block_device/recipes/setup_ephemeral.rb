@@ -7,6 +7,18 @@
 
 rightscale_marker :begin
 
+class Chef::Resource::Mount
+  include RightScale::BlockDeviceHelper
+end
+
+class Chef::Resource::Directory
+  include RightScale::BlockDeviceHelper
+end
+
+class Chef::Resource::RubyBlock
+  include RightScale::BlockDeviceHelper
+end
+
 require 'fileutils'
 require 'rightscale_tools'
 require 'pathname'
@@ -22,6 +34,15 @@ cloud = node[:cloud][:provider]
 # Generate fstab entry and check if entry already in fstab - assuming a reboot
 mount_point = "/mnt/ephemeral"
 lvm_device = "lvol0"
+
+# The default mount point for ephemeral device in image.
+# Azure mounts the ephemeral drive at '/mnt/resource' while EC2 and openstack mount the ephemeral drive at
+# '/mnt/ephemeral' by default.
+if cloud == 'azure'
+  ephemeral_mount_point = '/mnt/resource'
+else
+  ephemeral_mount_point = '/mnt/ephemeral'
+end
 
 # Ubuntu systems using upstart require the 'bootwait' option, otherwise
 # upstart will try to boot without waiting for the LVM volume to be mounted.
@@ -39,14 +60,15 @@ end
 
 root_device = `mount`.find {|dev| dev.include? " on / "}.split[0]
 
-current_mnt_device = `mount`.find {|dev| dev.include? " on /mnt "}
+current_mnt_device = `mount`.find {|dev| dev.include? " on #{ephemeral_mount_point} "}
 current_mnt_device = current_mnt_device ? current_mnt_device.split[0] : nil
 
-# Only EC2 and openstack is currently supported
-if cloud == 'ec2' || cloud == 'openstack'
+# Only EC2, Azure, and openstack clouds are currently supported
+if cloud == 'ec2' || cloud == 'openstack' || cloud == 'azure'
 
   # Get a list of ephemeral devices
   # Make sure to skip EBS volumes attached on boot
+  # See rightscale_tools gem for implementation of API.factory method
   @api = RightScale::Tools::API.factory('1.0', {:cloud => cloud}) if cloud == 'ec2'
   my_devices = []
   dev_index = 0
@@ -54,6 +76,8 @@ if cloud == 'ec2' || cloud == 'openstack'
     if node[cloud][:block_device_mapping]["ephemeral#{dev_index}"]
       device = node[cloud][:block_device_mapping]["ephemeral#{dev_index}"]
       device = '/dev/' + device if device !~ /^\/dev\//
+      # See rightscale_tools gem for implementation of unmap_device_for_ec2
+      # method.
       device = @api.unmap_device_for_ec2(device) if cloud == 'ec2'
       # for HVM: /dev/xvdb is symlinked to /dev/sda, though it shows up as
       # /dev/xvdb in /proc/partitions.  unmap function returns that
@@ -68,6 +92,17 @@ if cloud == 'ec2' || cloud == 'openstack'
       break
     end
     dev_index += 1
+  end if cloud != 'azure'
+
+  # Azure doesn't have block_device_mapping in the node so the device is hard-coded at the moment
+  if cloud == 'azure'
+    device = '/dev/sdb1'
+    device = Pathname.new(device).realpath.to_s if File.exists?(device)
+    if ( File.exists?(device) && File.ftype(device) == "blockSpecial" )
+      my_devices << device
+    else
+      log "  WARNING: Cannot use device #{device} - skipping"
+    end
   end
 
   # Check if /mnt is actually on a seperate device.
@@ -111,12 +146,12 @@ if cloud == 'ec2' || cloud == 'openstack'
     # so it can be used in the LVM.
     # ignore_failure set because /mnt may not be mounted, such as stop/start on HVM images.
 
-    mount "/mnt" do
+    mount ephemeral_mount_point do
       ignore_failure true
       device mnt_device
       fstype "ext3"
       action [:umount, :disable]
-      not_if { ( File.open('/etc/fstab', 'r') { |f| f.read }.match("^#{fstab_entry}$") ) && ( File.open('/etc/mtab', 'r') { |f| f.read }.match(" #{mount_point} #{filesystem_type} " ) ) }
+      not_if { ephemeral_fstab_and_mtab_checks(fstab_entry, mount_point, filesystem_type) }
     end
 
     # Create the mount point
@@ -125,7 +160,7 @@ if cloud == 'ec2' || cloud == 'openstack'
       group 'root'
       mode 0755
       recursive true
-      not_if { ( File.open('/etc/fstab', 'r') { |f| f.read }.match("^#{fstab_entry}$") ) && ( File.open('/etc/mtab', 'r') { |f| f.read }.match(" #{mount_point} #{filesystem_type} " ) ) }
+      not_if { ephemeral_fstab_and_mtab_checks(fstab_entry, mount_point, filesystem_type) }
     end
 
     # Setup the LVM across all ephemeral devices
@@ -168,7 +203,14 @@ if cloud == 'ec2' || cloud == 'openstack'
           Chef::Log.info "Done setting up LVM on ephemeral drives"
         end
       end
-      not_if { ( File.open('/etc/fstab', 'r') { |f| f.read }.match("^#{fstab_entry}$") ) && ( File.open('/etc/mtab', 'r') { |f| f.read }.match(" #{mount_point} #{filesystem_type} " ) ) }
+      not_if { ephemeral_fstab_and_mtab_checks(fstab_entry, mount_point, filesystem_type) }
+    end
+
+    # Delete /mnt/resource directory on azure
+    directory ephemeral_mount_point do
+      recursive false
+      action :delete
+      only_if {cloud == 'azure'}
     end
   end
 else

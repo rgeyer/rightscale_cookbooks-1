@@ -6,6 +6,7 @@
 # if applicable, other agreements such as a RightScale Master Subscription Agreement.
 
 
+# Setup repository URL and other attributes.
 action :setup_attributes do
 
   branch = new_resource.revision
@@ -20,13 +21,14 @@ action :setup_attributes do
 
   # Checking repository URL
   raise "  ERROR: repo URL input is unset. Please fill 'Repository URL' input" if repository_url.empty?
-
 end
 
 
+# Pull code from a determined repository to a specified destination.
 action :pull do
 
   # Checking attributes
+  # Calls the :setup_attributes action.
   action_setup_attributes
 
   # Setting parameters
@@ -34,8 +36,8 @@ action :pull do
   repository_url = new_resource.repository
   branch_tag = new_resource.revision
   app_user = new_resource.app_user
-  svn_password = new_resource.svn_password
-  svn_user = new_resource.svn_username
+  svn_password = new_resource.credential
+  svn_user = new_resource.account
   params = "--no-auth-cache --non-interactive"
 
 
@@ -67,20 +69,21 @@ action :pull do
   end
 
   log "  SVN repository update/download action - finished successfully!"
-
 end
 
+# Pull code from a determined repository to a specified destination and create a capistrano-style deployment.
 action :capistrano_pull do
 
   # Checking attributes
+  # Calls the :setup_attributes action.
   action_setup_attributes
 
   log "  Preparing to capistrano deploy action. Setting parameters for the process..."
   destination = new_resource.destination
   repository = new_resource.repository
   revision = new_resource.revision
-  svn_username = new_resource.svn_username
-  svn_password = new_resource.svn_password
+  svn_username = new_resource.account
+  svn_password = new_resource.credential
   app_user = new_resource.app_user
   purge_before_symlink = new_resource.purge_before_symlink
   create_dirs_before_symlink = new_resource.create_dirs_before_symlink
@@ -92,6 +95,7 @@ action :capistrano_pull do
   log "  Deploy provider #{scm_provider}"
 
   # Applying capistrano style deployment
+  # See cookbooks/repo/definition/repo_capistranize.rb for the "repo_capistranize" definition.
   repo_capistranize "Source repo" do
     repository repository
     destination destination

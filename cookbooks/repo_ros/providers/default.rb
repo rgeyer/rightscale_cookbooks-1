@@ -5,6 +5,7 @@
 # RightScale Terms of Service available at http://www.rightscale.com/terms.php and,
 # if applicable, other agreements such as a RightScale Master Subscription Agreement.
 
+# Setup repository attributes.
 action :setup_attributes do
 
   # Checking ros_util presence it is required for repo_ros correct operations
@@ -16,18 +17,20 @@ action :setup_attributes do
 
   # Checking inputs required for getting source from ROS
   raise "  Storage Provider input is unset" unless new_resource.storage_account_provider
-  raise "  Storage account provider ID input is unset" unless new_resource.storage_account_id
-  raise "  Storage account secret input is unset" unless new_resource.storage_account_secret
-  raise "  Repo container name input is unset." unless new_resource.container
-
+  raise "  Storage account provider ID input is unset" unless new_resource.account
+  raise "  Storage account secret input is unset" unless new_resource.credential
+  raise "  Repo container name input is unset." unless new_resource.repository
 end
 
+
+# Pull code from a determined repository to a specified destination.
 action :pull do
 
   # Checking attributes
+  # Calls the :setup_attributes action.
   action_setup_attributes
 
-  log "  Trying to get ros repo from: #{new_resource.storage_account_provider}, bucket: #{new_resource.container}"
+  log "  Trying to get ros repo from: #{new_resource.storage_account_provider}, bucket: #{new_resource.repository}"
 
   # Backup project directory if it is not empty
   ruby_block "Backup of existing project directory" do
@@ -50,11 +53,11 @@ action :pull do
   log "  Downloaded file will be available in #{tmp_repo_path}"
 
   # Obtain the source from ROS
-  execute "Download #{new_resource.container} from Remote Object Store" do
-    command "/opt/rightscale/sandbox/bin/ros_util get --cloud #{new_resource.storage_account_provider} --container #{new_resource.container} --dest #{tmp_repo_path} --source #{new_resource.prefix} --latest"
+  execute "Download #{new_resource.repository} from Remote Object Store" do
+    command "/opt/rightscale/sandbox/bin/ros_util get --cloud #{new_resource.storage_account_provider} --container #{new_resource.repository} --dest #{tmp_repo_path} --source #{new_resource.prefix} --latest"
     environment ({
-      'STORAGE_ACCOUNT_ID' => new_resource.storage_account_id,
-      'STORAGE_ACCOUNT_SECRET' => new_resource.storage_account_secret
+      'STORAGE_ACCOUNT_ID' => new_resource.account,
+      'STORAGE_ACCOUNT_SECRET' => new_resource.credential
     })
   end
 
@@ -71,12 +74,13 @@ action :pull do
 end
 
 
+# Pull code from a determined repository to a specified destination and create a capistrano-style deployment.
 action :capistrano_pull do
 
   log "  Recreating project directory for :pull action"
 
-  repo_dir="/home"
-  capistrano_dir="/home/capistrano_repo"
+  repo_dir = "/home"
+  capistrano_dir = "/home/capistrano_repo"
 
   # Delete if destination is a symlink
   link "#{new_resource.destination}" do
@@ -108,6 +112,7 @@ action :capistrano_pull do
   directory "#{new_resource.destination}"
 
   log "  Pulling source from ROS"
+  # Calls the :action_pull action.
   action_pull
 
   # The embedded chef capistrano resource can work only with git or svn repositories
@@ -139,7 +144,7 @@ action :capistrano_pull do
     action :delete
   end
 
-  #initialisation of new git repo with initial commit
+  # Initialize new git repo with initial commit.
   bash "Git init in project folder" do
     cwd "#{repo_dir}/ros_repo"
     code <<-EOH
@@ -153,6 +158,7 @@ action :capistrano_pull do
   log "  Deploy provider #{scm_provider}"
 
   # Applying capistrano style deployment
+  # See cookbooks/repo/definition/repo_capistranize.rb for the "repo_capistranize" definition.
   repo_capistranize "Source repo" do
     repository "#{repo_dir}/ros_repo/"
     destination destination

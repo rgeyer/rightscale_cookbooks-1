@@ -6,4 +6,12 @@
 # if applicable, other agreements such as a RightScale Master Subscription Agreement.
 
 rightscale_marker :begin
+
+log "  Starting logging server"
+# Calls the logging service start command
+# See cookbooks/logging_<provider>/providers/default.rb for the "start" action.
+logging "default" do
+  action :start
+end
+
 rightscale_marker :end

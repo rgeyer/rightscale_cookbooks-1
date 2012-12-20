@@ -8,12 +8,8 @@
 # Default setting for DB FQDN
 set_unless[:db][:dns][:master][:fqdn] = "localhost"
 
-# Initial setting for data directory location
+# Initial settings for client operations on application servers
 set_unless[:db][:data_dir] = "/mnt/storage"
-
-# DB Provider, type of database which will be initialized
-# can be db_mysql or db_postgres, for more info please refer to corresponding cookbooks
-set_unless[:db][:provider] = "db_mysql"
 
 # Default settings for database administrator user and password
 set_unless[:db][:admin][:user] = "root"
@@ -30,6 +26,8 @@ set_unless[:db][:backup][:lineage_override] = ""
 # TTL limit to verify Master DB DNS TTL
 set_unless[:db][:dns][:ttl] = "60"
 
+# Database driver class to be used based on the type of driver
+set_unless[:db][:client][:driver] = ""
 
 # Server state variables
 #
@@ -51,13 +49,19 @@ set_unless[:db][:current_master_ip] = nil
 #  overloading the API and cloud providers.  If every rightscale server sent a request at the same
 #  time to perform a snapshot it would be a huge usage spike.  The random start time even out these spikes.
 
-# Generate random minute
+# Generate random time
 # Master and slave backup times are staggered by 30 minutes.
+cron_h = rand(23)
 cron_min = 5 + rand(24)
-# Master backup every 4 hours at a random minute between 5-29
-set_unless[:db][:backup][:primary][:master][:cron][:hour] = "*/4"
+
+# Master backup daily at a random hour and a random minute between 5-29
+set_unless[:db][:backup][:primary][:master][:cron][:hour] = cron_h
 set_unless[:db][:backup][:primary][:master][:cron][:minute] = cron_min
 
 # Slave backup every hour at a random minute 30 minutes offset from the master.
 set_unless[:db][:backup][:primary][:slave][:cron][:hour] = "*" # every hour
 set_unless[:db][:backup][:primary][:slave][:cron][:minute] = cron_min + 30
+
+# DB manager type specific commands array for db_sys_info.log file
+set_unless[:db][:info_file_options] = []
+set_unless[:db][:info_file_location] = "/etc"

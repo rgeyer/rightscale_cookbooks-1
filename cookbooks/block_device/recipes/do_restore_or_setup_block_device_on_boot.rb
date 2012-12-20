@@ -62,7 +62,7 @@ do_for_block_devices node[:block_device] do |device|
       restore_or_create_action = :create
     else
       log "  Attempting to restore from #{restore_source} for device #{device}"
-      if backups[restore_source.to_sym] && backups[restore_source.to_sym][:backups].count > 0
+      if backups[restore_source.to_sym] && backups[restore_source.to_sym][:has_backups]
         restore_or_create_action = "#{restore_source}_restore".to_sym
         break
       else
