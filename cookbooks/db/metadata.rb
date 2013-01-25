@@ -14,6 +14,7 @@ depends "block_device"
 depends "sys_firewall"
 depends "db_mysql"
 depends "db_postgres"
+depends "openldap"
 
 
 recipe "db::default", "Selects and installs database client. It also sets up the provider and version for 'db' resource."
