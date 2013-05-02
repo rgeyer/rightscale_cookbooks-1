@@ -25,7 +25,7 @@
   "groupings": {
   },
   "recipes": {
-    "logging_rsyslog::setup_server": "Set rsyslog logging provider"
+    "logging_rsyslog::setup_server": "Sets rsyslog logging provider"
   },
-  "version": "13.2.0"
+  "version": "13.3.0"
 }

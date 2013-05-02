@@ -32,12 +32,11 @@ define :db_mysql_set_privileges, :preset => "administrator", :username => nil, :
       require 'rubygems'
       require 'mysql'
 
-      con = Mysql.new("", "root",nil,nil,nil,"#{node[:db][:socket]}")
+      con = Mysql.new("", "root", nil, nil, nil, "#{node[:db][:socket]}")
 
       # Now that we have a Mysql object, let's sanitize our inputs
       username = con.escape_string(username)
       password = con.escape_string(password)
-
 
       # Remove anonymous access via the server hostname.
       # Some cloud sets hostname to DNS FQDN name which causes problems for replication.
