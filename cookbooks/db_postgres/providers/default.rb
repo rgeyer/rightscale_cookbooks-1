@@ -1,9 +1,10 @@
 #
 # Cookbook Name:: db_postgres
 #
-# Copyright RightScale, Inc. All rights reserved.  All access and use subject to the
-# RightScale Terms of Service available at http://www.rightscale.com/terms.php and,
-# if applicable, other agreements such as a RightScale Master Subscription Agreement.
+# Copyright RightScale, Inc. All rights reserved.
+# All access and use subject to the RightScale Terms of Service available at
+# http://www.rightscale.com/terms.php and, if applicable, other agreements
+# such as a RightScale Master Subscription Agreement.
 
 include RightScale::Database::Helper
 include RightScale::Database::PostgreSQL::Helper
@@ -153,13 +154,6 @@ action :install_client do
 
   # Install PostgreSQL package(s)
 
-  node[:db][:socket] = value_for_platform(
-    ["centos", "redhat"] => {
-      "default" => "/var/run/postgresql"
-    },
-    "default" => ""
-  )
-
   node[:db_postgres][:client_packages_install] = value_for_platform(
     ["centos", "redhat"] => {
       "default" => [
@@ -191,7 +185,7 @@ action :install_client do
     end
 
     packages = node[:db_postgres][:client_packages_install]
-    log  "Packages to install: #{packages.join(", ")}"
+    log "  Packages to install: #{packages.join(", ")}"
     packages.each do |p|
       package p do
         action :install
@@ -255,15 +249,6 @@ action :install_server do
     action :stop
   end
 
-
-  # Create the Socket directory
-  #directory "/var/run/postgresql" do
-  directory "#{node[:db][:socket]}" do
-    owner "postgres"
-    group "postgres"
-    mode 0770
-    recursive true
-  end
 
   # Setup postgresql.conf
   # template_source = "postgresql.conf.erb"
@@ -331,7 +316,7 @@ action :install_client_driver do
     node[:db][:client][:driver] = "postgres"
     package "#{type} postgres integration" do
       package_name value_for_platform(
-        [ "centos", "redhat" ] => {
+        ["centos", "redhat"] => {
           "default" => "php53u-pgsql"
         },
         "ubuntu" => {
@@ -391,12 +376,12 @@ action :grant_replication_slave do
   # Enable admin/replication user
   # Check if server is in read_only mode, if found skip this...
   res = conn.exec("show transaction_read_only")
-  slavestatus = res.getvalue(0,0)
-  if ( slavestatus == 'off' )
+  slavestatus = res.getvalue(0, 0)
+  if (slavestatus == 'off')
     log "  Detected Master server."
     result = conn.exec("SELECT COUNT(*) FROM pg_user WHERE usename='#{username_esc}'")
-    userstat = result.getvalue(0,0)
-    if ( userstat == '1' )
+    userstat = result.getvalue(0, 0)
+    if (userstat == '1')
       log "  User #{username} already exists, updating user using current inputs"
       conn.exec("ALTER USER #{username} SUPERUSER CREATEDB CREATEROLE INHERIT LOGIN ENCRYPTED PASSWORD '#{password}'")
     else
@@ -462,9 +447,9 @@ action :enable_replication do
   bash "wipe_existing_runtime_config" do
     not_if { current_restore_process == :no_restore }
     flags "-ex"
-     code <<-EOH
+    code <<-EOH
        rm -rf #{node[:db_postgres][:datadir]}/pg_xlog/*
-     EOH
+    EOH
   end
 
   # Ensure that database started
@@ -498,7 +483,7 @@ action :promote do
     sleep 10
 
     # Let the new slave loose and thus let him become the new master
-    Chef::Log.info  "  New master is ReadWrite."
+    Chef::Log.info "  New master is ReadWrite."
 
   rescue => e
     Chef::Log.info "  WARNING: caught exception #{e} during critical operations on the MASTER"
@@ -522,17 +507,6 @@ action :setup_monitoring do
     package "collectd-postgresql" do
       action :install
       version "#{collectd_version}" unless collectd_version == "latest"
-    end
-
-    template ::File.join(node[:rightscale][:collectd_plugin_dir], 'postgresql.conf') do
-      backup false
-      source "postgresql_collectd_plugin.conf.erb"
-      variables(
-        :database_owner => priv_username,
-        :database_owner_pass => priv_password
-      )
-      notifies :restart, resources(:service => "collectd")
-      cookbook 'db_postgres'
     end
 
     template ::File.join(node[:rightscale][:collectd_share], 'postgresql_default.conf') do
@@ -619,14 +593,14 @@ end
 
 action :generate_dump_file do
 
-  db_name     = new_resource.db_name
-  dumpfile    = new_resource.dumpfile
+  db_name = new_resource.db_name
+  dumpfile = new_resource.dumpfile
 
   bash "Write the postgres DB backup file" do
-      user 'postgres'
-      code <<-EOH
-        pg_dump -U postgres -h /var/run/postgresql #{db_name} | gzip -c > #{dumpfile}
-      EOH
+    user 'postgres'
+    code <<-EOH
+      pg_dump -U postgres #{db_name} | gzip -c > #{dumpfile}
+    EOH
   end
 
 
@@ -634,31 +608,72 @@ end
 
 action :restore_from_dump_file do
 
-  db_name     = new_resource.db_name
-  dumpfile    = new_resource.dumpfile
+  db_name = new_resource.db_name
+  dumpfilepath_without_extension = new_resource.dumpfile
 
   log "  Check if DB already exists"
   ruby_block "checking existing db" do
     block do
-      db_check = `echo "select datname from pg_database" | psql -U postgres -h /var/run/postgresql | grep -q  "#{db_name}"`
-      if ! db_check.empty?
-        raise "ERROR: database '#{db_name}' already exists"
-      end
+      query = "echo \"select datname from pg_database\" |" +
+        " psql -U | grep -q  \"#{db_name}\""
+      db_check = `#{query}`
+      raise "ERROR: database '#{db_name}' already exists" unless db_check.empty?
     end
   end
 
-  bash "Import PostgreSQL dump file: #{dumpfile}" do
-    user "postgres"
-    code <<-EOH
-      set -e
-      if [ ! -f #{dumpfile} ]
-      then
-        echo "ERROR: PostgreSQL dumpfile not found! File: '#{dumpfile}'"
-        exit 1
-      fi
-      createdb -U postgres -h /var/run/postgresql #{db_name}
-      gunzip < #{dumpfile} | psql -U postgres -h /var/run/postgresql #{db_name}
-    EOH
+  # Detect the compression type of the downloaded file and set the
+  # extension properly.
+  node[:db][:dump][:filepath] = ""
+  node[:db][:dump][:uncompress_command] = ""
+  ruby_block "Detect compression type" do
+    block do
+      require "fileutils"
+
+      file_type = Mixlib::ShellOut.new("file #{dumpfilepath_without_extension}")
+      file_type.run_command
+      file_type.error!
+      command_output = file_type.stdout
+
+      extension = ""
+      if command_output =~ /Zip archive data/
+        extension = "zip"
+        node[:db][:dump][:uncompress_command] = "unzip -p"
+      elsif command_output =~ /gzip compressed data/
+        extension = "gz"
+        node[:db][:dump][:uncompress_command] = "gunzip <"
+      elsif command_output =~ /bzip2 compressed data/
+        extension = "bz2"
+        node[:db][:dump][:uncompress_command] = "bunzip2 <"
+      end
+      node[:db][:dump][:filepath] = dumpfilepath_without_extension +
+        "." +
+        extension
+      FileUtils.mv(dumpfilepath_without_extension, node[:db][:dump][:filepath])
+    end
+  end
+
+  ruby_block "Import PostgreSQL dump file" do
+    block do
+      if ::File.exists?(node[:db][:dump][:filepath])
+        # Create the database
+        Chef::Log.info "  Creating DB #{db_name}..."
+        create_db = Mixlib::ShellOut.new("createdb -U postgres #{db_name}")
+        create_db.run_command
+        create_db.error!
+
+        # Import comtents from dump file to the database
+        Chef::Log.info "  Importing contents from dumpfile:" +
+          " #{node[:db][:dump][:filepath]}"
+        import_dump = Mixlib::ShellOut.new(
+          "#{node[:db][:dump][:uncompress_command]} #{node[:db][:dump][:filepath]} |" +
+          " psql -U postgres #{db_name}"
+        )
+        import_dump.run_command
+        import_dump.error!
+      else
+        raise "PostgreSQL dump file not found: #{node[:db][:dump][:filepath]}"
+      end
+    end
   end
 
 end
